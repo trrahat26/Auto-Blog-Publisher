@@ -24,3 +24,9 @@ expertMode = true
 [postMerge]
 path = "scripts/post-merge.sh"
 timeoutMs = 20000
+
+[userenv]
+
+[userenv.shared]
+BLOGGER_BLOG_ID = "2337671613504683"
+GOOGLE_REDIRECT_URI = "https://workspace.replit.dev/api/auth/callback"
