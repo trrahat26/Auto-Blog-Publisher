@@ -1,0 +1,51 @@
+﻿name: Blogger Daily Post
+
+on:
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Write OAuth files
+        env:
+          BLOGGER_CLIENT_SECRET_JSON: ${{ secrets.BLOGGER_CLIENT_SECRET_JSON }}
+          BLOGGER_TOKEN_JSON: ${{ secrets.BLOGGER_TOKEN_JSON }}
+        run: |
+          python - <<'PY'
+          import os
+          from pathlib import Path
+
+          def write_json(env_name, filename):
+              data = os.getenv(env_name)
+              if not data:
+                  raise SystemExit(f"Missing {env_name}")
+              Path(filename).write_text(data, encoding="utf-8")
+
+          write_json("BLOGGER_CLIENT_SECRET_JSON", "client_secret.json")
+          write_json("BLOGGER_TOKEN_JSON", "token.json")
+          PY
+
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run autoposter
+        env:
+          BLOGGER_BLOG_ID: ${{ secrets.BLOGGER_BLOG_ID }}
+          PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
+          OWNER_KEY_REQUIRED: ${{ secrets.OWNER_KEY_REQUIRED }}
+          OWNER_KEY: ${{ secrets.OWNER_KEY }}
+        run: |
+          python main.py
