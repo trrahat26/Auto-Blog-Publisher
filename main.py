@@ -2,28 +2,38 @@
 import json
 import logging
 import os
+import re
 import shutil
 import time
 import urllib.parse
 import urllib.request
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from auth import authenticate
-from blogger_api import create_post
+from blogger_api import create_post, get_recent_posts
 from config import (
     ARCHIVE_POSTED,
+    CACHE_DIR,
     CONTENT_DIR,
-    DAILY_INTERVAL_HOURS,
+    DAILY_TIMEZONE,
+    DAILY_TIME_HHMM,
     LOG_DIR,
     LOG_FILE,
+    MAX_IMAGES_PER_POST,
+    MAX_POSTS_PER_DAY,
     OWNER_KEY_ENV,
     OWNER_KEY_REQUIRED,
+    PIXABAY_API_KEY,
+    PIXABAY_ENABLE,
+    PIXABAY_LANG,
+    PIXABAY_ORIENTATION,
     PEXELS_API_KEY,
     PEXELS_ATTRIBUTION,
     PEXELS_LOCALE,
     PEXELS_ORIENTATION,
-    POSTED_DIR,
+    USED_DIR,
 )
 
 MAX_RETRIES = 2
@@ -44,7 +54,8 @@ def setup_logging():
 def ensure_dirs():
     os.makedirs(CONTENT_DIR, exist_ok=True)
     if ARCHIVE_POSTED:
-        os.makedirs(POSTED_DIR, exist_ok=True)
+        os.makedirs(USED_DIR, exist_ok=True)
+    os.makedirs(CACHE_DIR, exist_ok=True)
 
 
 def extract_title(text, fallback_title):
@@ -88,10 +99,12 @@ def parse_content_file(path):
     ext = Path(path).suffix.lower()
     if ext in {".html", ".htm"}:
         content = text
+        is_html = True
     else:
         content = text_to_html(text)
+        is_html = False
 
-    return title, content
+    return title, content, text, is_html
 
 
 def load_content_items():
@@ -108,7 +121,8 @@ def load_content_items():
     for path in sorted(files):
         parsed = parse_content_file(path)
         if parsed:
-            items.append((parsed[0], parsed[1], path))
+            title, content, raw_text, is_html = parsed
+            items.append((title, content, raw_text, is_html, path))
     return items
 
 
@@ -139,13 +153,124 @@ def enforce_owner_lock():
         raise PermissionError("Owner key check failed.")
 
 
-def fetch_pexels_image(title):
+def strip_html(text):
+    text = re.sub(r"<[^>]+>", " ", text)
+    text = re.sub(r"\s+", " ", text)
+    return text.strip()
+
+
+def extract_keywords(text, max_keywords=10):
+    stopwords = {
+        "the",
+        "and",
+        "for",
+        "with",
+        "that",
+        "this",
+        "from",
+        "your",
+        "you",
+        "are",
+        "was",
+        "were",
+        "has",
+        "have",
+        "had",
+        "into",
+        "about",
+        "over",
+        "under",
+        "what",
+        "when",
+        "where",
+        "which",
+        "who",
+        "why",
+        "how",
+        "its",
+        "their",
+        "them",
+        "they",
+        "our",
+        "out",
+        "can",
+        "will",
+        "just",
+        "more",
+        "most",
+        "make",
+        "makes",
+        "made",
+        "also",
+        "use",
+        "using",
+        "used",
+        "like",
+        "than",
+        "then",
+        "but",
+        "not",
+        "each",
+        "any",
+        "all",
+        "get",
+        "got",
+        "new",
+        "now",
+    }
+
+    words = re.findall(r"[a-zA-Z][a-zA-Z0-9-]{2,}", text.lower())
+    counts = {}
+    for w in words:
+        if w in stopwords:
+            continue
+        counts[w] = counts.get(w, 0) + 1
+    ranked = sorted(counts.items(), key=lambda x: (-x[1], x[0]))
+    return [w for w, _ in ranked[:max_keywords]]
+
+
+def generate_seo_title(base_title, keyword):
+    base_title = base_title.strip()
+    if keyword and keyword.lower() not in base_title.lower():
+        candidate = f"{keyword.title()}: {base_title}"
+    else:
+        candidate = base_title
+
+    if len(candidate) <= 60:
+        return candidate
+
+    if keyword:
+        short = f"{keyword.title()} Guide"
+        return short[:60]
+    return candidate[:60].rstrip()
+
+
+def generate_meta_description(text, keyword):
+    clean = strip_html(text)
+    if not clean:
+        clean = f"{keyword.title()} tips and quick insights." if keyword else "Quick insights and tips."
+    if keyword and keyword.lower() not in clean.lower():
+        clean = f"{keyword.title()} - {clean}"
+    if len(clean) > 160:
+        clean = clean[:157].rstrip() + "..."
+    if len(clean) < 120:
+        clean = clean + " Learn more in this quick guide."
+        if len(clean) > 160:
+            clean = clean[:157].rstrip() + "..."
+    return clean
+
+
+def fetch_pexels_image(query, cache):
     if not PEXELS_API_KEY:
         return None
 
-    query = title.strip()
+    query = query.strip()
     if not query:
         return None
+
+    cache_key = f"pexels:{query.lower()}"
+    if cache_key in cache:
+        return cache[cache_key]
 
     params = {
         "query": query,
@@ -177,43 +302,167 @@ def fetch_pexels_image(title):
     if not image_url:
         return None
 
-    return image_url, photographer
+    cache[cache_key] = (image_url, "Pexels", photographer)
+    return cache[cache_key]
 
 
-def inject_pexels_image(title, content):
-    if not PEXELS_API_KEY:
+def fetch_pixabay_image(query, cache):
+    if not (PIXABAY_ENABLE and PIXABAY_API_KEY):
+        return None
+
+    query = query.strip()
+    if not query:
+        return None
+
+    cache_key = f"pixabay:{query.lower()}"
+    if cache_key in cache:
+        return cache[cache_key]
+
+    params = {
+        "key": PIXABAY_API_KEY,
+        "q": query,
+        "image_type": "photo",
+        "orientation": PIXABAY_ORIENTATION,
+        "lang": PIXABAY_LANG,
+        "per_page": 3,
+        "safesearch": "true",
+    }
+    url = "https://pixabay.com/api/?" + urllib.parse.urlencode(params)
+
+    try:
+        with urllib.request.urlopen(url, timeout=15) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+    except Exception:
+        logging.exception("Pixabay API request failed")
+        return None
+
+    hits = payload.get("hits") or []
+    if not hits:
+        return None
+
+    hit = hits[0]
+    image_url = hit.get("webformatURL") or hit.get("largeImageURL")
+    if not image_url:
+        return None
+
+    cache[cache_key] = (image_url, "Pixabay", None)
+    return cache[cache_key]
+
+
+def build_image_blocks(keywords, cache, max_images=3):
+    images = []
+    for kw in keywords:
+        if len(images) >= max_images:
+            break
+        image = fetch_pexels_image(kw, cache)
+        if not image:
+            image = fetch_pixabay_image(kw, cache)
+        if image:
+            images.append((kw, image[0], image[1], image[2]))
+    return images
+
+
+def inject_images(content, images):
+    if not images:
         return content
-
-    lower = content.lower()
-    if "<img" in lower:
-        return content
-
-    image_data = fetch_pexels_image(title)
-    if not image_data:
-        return content
-
-    image_url, photographer = image_data
-    alt_text = html.escape(title)
-    figure = [f'<figure><img src="{image_url}" alt="{alt_text}"/>']
-    if PEXELS_ATTRIBUTION and photographer:
-        figure.append(
-            f"<figcaption>Photo by {html.escape(photographer)} on "
-            '<a href="https://www.pexels.com">Pexels</a></figcaption>'
-        )
-    figure.append("</figure>")
-    image_html = "\n".join(figure)
 
     if "{{image}}" in content:
-        return content.replace("{{image}}", image_html)
+        image_html = []
+        for kw, url, provider, credit in images:
+            alt_text = html.escape(kw)
+            figure = [f'<figure><img src="{url}" alt="{alt_text}"/>']
+            if PEXELS_ATTRIBUTION and provider == "Pexels" and credit:
+                figure.append(
+                    f"<figcaption>Photo by {html.escape(credit)} on "
+                    '<a href="https://www.pexels.com">Pexels</a></figcaption>'
+                )
+            figure.append("</figure>")
+            image_html.append("\n".join(figure))
+        return content.replace("{{image}}", "\n".join(image_html))
 
-    return image_html + "\n" + content
+    chunks = content.split("</p>")
+    output = []
+    img_index = 0
+    for idx, chunk in enumerate(chunks):
+        if not chunk.strip():
+            continue
+        output.append(chunk + "</p>")
+        if img_index < len(images) and (idx == 0 or idx % 2 == 1):
+            kw, url, provider, credit = images[img_index]
+            alt_text = html.escape(kw)
+            figure = [f'<figure><img src="{url}" alt="{alt_text}"/>']
+            if PEXELS_ATTRIBUTION and provider == "Pexels" and credit:
+                figure.append(
+                    f"<figcaption>Photo by {html.escape(credit)} on "
+                    '<a href="https://www.pexels.com">Pexels</a></figcaption>'
+                )
+            figure.append("</figure>")
+            output.append("\n".join(figure))
+            img_index += 1
+    return "\n".join(output)
 
 
-def post_with_retry(title, content, source_label=None):
+def build_post_html(title, raw_text, keywords, internal_links, external_links):
+    keyword = keywords[0] if keywords else ""
+    seo_title = generate_seo_title(title, keyword)
+    meta_description = generate_meta_description(raw_text, keyword)
+
+    sentences = re.split(r"(?<=[.!?])\s+", strip_html(raw_text))
+    body_sentences = [s for s in sentences if s]
+    if not body_sentences:
+        body_sentences = [meta_description]
+
+    paragraphs = []
+    current = []
+    for s in body_sentences:
+        if len(" ".join(current + [s])) > 240:
+            paragraphs.append(" ".join(current))
+            current = []
+        current.append(s)
+    if current:
+        paragraphs.append(" ".join(current))
+
+    h2_titles = [
+        f"Why {keyword.title()} Matters" if keyword else "Why It Matters",
+        "Key Takeaways",
+        "Practical Tips",
+    ]
+
+    content_parts = [f"<h1>{html.escape(seo_title)}</h1>"]
+    content_parts.append(f"<p><strong>Hook:</strong> {html.escape(meta_description)}</p>")
+
+    for idx, para in enumerate(paragraphs[:3]):
+        content_parts.append(f"<h2>{html.escape(h2_titles[idx])}</h2>")
+        content_parts.append(f"<p>{html.escape(para)}</p>")
+
+    if internal_links:
+        content_parts.append("<h2>Related Posts</h2>")
+        links_html = "".join(
+            f'<li><a href="{link}">{html.escape(text)}</a></li>'
+            for text, link in internal_links
+        )
+        content_parts.append(f"<ul>{links_html}</ul>")
+
+    if external_links:
+        content_parts.append("<h2>Learn More</h2>")
+        links_html = "".join(
+            f'<li><a href="{link}" rel="nofollow noopener">{html.escape(text)}</a></li>'
+            for text, link in external_links
+        )
+        content_parts.append(f"<ul>{links_html}</ul>")
+
+    hashtags = " ".join(f"#{kw}" for kw in keywords[:5])
+    if hashtags:
+        content_parts.append(f"<p><em>{html.escape(hashtags)}</em></p>")
+
+    return seo_title, "\n".join(content_parts), meta_description
+
+
+def post_with_retry(title, content, labels=None, source_label=None):
     attempts = MAX_RETRIES + 1
     for attempt in range(1, attempts + 1):
         try:
-            result = create_post(title, content)
+            result = create_post(title, content, labels=labels)
             post_id = result.get("id", "unknown")
             logging.info("Posted successfully: %s (id=%s)", title, post_id)
             return result
@@ -241,7 +490,7 @@ def archive_posted_file(path):
         return
 
     timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-    target = Path(POSTED_DIR) / f"{source.stem}-{timestamp}{source.suffix}"
+    target = Path(USED_DIR) / f"{source.stem}-{timestamp}{source.suffix}"
     shutil.move(str(source), str(target))
 
 
@@ -254,16 +503,52 @@ def run_once():
 
     items = load_content_items()
     if items:
-        for title, content, path in items:
-            content = inject_pexels_image(title, content)
-            post_with_retry(title, content, source_label=path)
-            archive_posted_file(path)
-        print(f"Posted {len(items)} article(s) from /content/")
+        recent_posts = get_recent_posts(max_results=5)
+        internal_links = [
+            (p.get("title", "Previous post"), p.get("url"))
+            for p in recent_posts
+            if p.get("url")
+        ][:2]
+
+        posted_count = 0
+        cache = {}
+        for title, content, raw_text, is_html, path in items:
+            if posted_count >= MAX_POSTS_PER_DAY:
+                break
+            try:
+                keywords = extract_keywords(strip_html(raw_text), max_keywords=10)
+                external_links = []
+                if keywords:
+                    external_links.append(
+                        (
+                            "Wikipedia",
+                            f"https://en.wikipedia.org/wiki/Special:Search?search={urllib.parse.quote(keywords[0])}",
+                        )
+                    )
+
+                seo_title, seo_html, _ = build_post_html(
+                    title, raw_text, keywords, internal_links, external_links
+                )
+                images = build_image_blocks(keywords, cache, max_images=MAX_IMAGES_PER_POST)
+                seo_html = inject_images(seo_html, images)
+                labels = keywords[:10]
+                logging.info("SEO keywords used: %s", ", ".join(labels))
+                post_with_retry(seo_title, seo_html, labels=labels, source_label=path)
+                archive_posted_file(path)
+                posted_count += 1
+            except Exception:
+                logging.exception("Failed to process file: %s", path)
+                continue
+        print(f"Posted {posted_count} article(s) from /content/")
         return
 
     title, content = generate_placeholder_post()
-    content = inject_pexels_image(title, content)
-    post_with_retry(title, content)
+    keywords = extract_keywords(strip_html(content), max_keywords=10)
+    seo_title, seo_html, _ = build_post_html(title, content, keywords, [], [])
+    cache = {}
+    images = build_image_blocks(keywords, cache, max_images=MAX_IMAGES_PER_POST)
+    seo_html = inject_images(seo_html, images)
+    post_with_retry(seo_title, seo_html, labels=keywords[:10])
     print("Posted 1 generated article")
 
 
@@ -274,13 +559,20 @@ def run_auto():
 
 def run_daily():
     setup_logging()
-    logging.info("Daily mode enabled. Interval: %s hour(s)", DAILY_INTERVAL_HOURS)
+    logging.info("Daily mode enabled. Time: %s %s", DAILY_TIME_HHMM, DAILY_TIMEZONE)
+    tz = ZoneInfo(DAILY_TIMEZONE)
+    hour, minute = [int(x) for x in DAILY_TIME_HHMM.split(":")]
     while True:
+        now = datetime.now(tz)
+        target = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+        if target <= now:
+            target = target + timedelta(days=1)
+        sleep_seconds = (target - now).total_seconds()
+        time.sleep(max(sleep_seconds, 1))
         try:
             run_once()
         except Exception:
             logging.exception("Daily run failed")
-        time.sleep(DAILY_INTERVAL_HOURS * 3600)
 
 
 if __name__ == "__main__":
@@ -290,7 +582,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--daily",
         action="store_true",
-        help="Run continuously and post once every interval.",
+        help="Run continuously and post once every day at the fixed time.",
     )
     args = parser.parse_args()
 

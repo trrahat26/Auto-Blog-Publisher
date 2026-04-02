@@ -9,7 +9,7 @@ def get_service():
     return build("blogger", "v3", credentials=creds, cache_discovery=False)
 
 
-def create_post(title, content):
+def create_post(title, content, labels=None):
     if not BLOGGER_BLOG_ID:
         raise ValueError(
             "BLOGGER_BLOG_ID is not set. Set it in config.py or as an env var."
@@ -21,9 +21,34 @@ def create_post(title, content):
         "title": title,
         "content": content,
     }
+    if labels:
+        body["labels"] = labels
 
     return (
         service.posts()
         .insert(blogId=BLOGGER_BLOG_ID, body=body, isDraft=False)
         .execute()
     )
+
+
+def get_recent_posts(max_results=5):
+    if not BLOGGER_BLOG_ID:
+        raise ValueError(
+            "BLOGGER_BLOG_ID is not set. Set it in config.py or as an env var."
+        )
+    service = get_service()
+    response = (
+        service.posts()
+        .list(blogId=BLOGGER_BLOG_ID, maxResults=max_results, orderBy="published")
+        .execute()
+    )
+    return response.get("items", [])
+
+
+def get_blog():
+    if not BLOGGER_BLOG_ID:
+        raise ValueError(
+            "BLOGGER_BLOG_ID is not set. Set it in config.py or as an env var."
+        )
+    service = get_service()
+    return service.blogs().get(blogId=BLOGGER_BLOG_ID).execute()

@@ -2,7 +2,7 @@
 
 on:
   schedule:
-    - cron: "0 6 * * *"
+    - cron: "0 13 * * *"
   workflow_dispatch:
 
 jobs:
@@ -38,6 +38,8 @@ jobs:
         env:
           BLOGGER_BLOG_ID: ${{ secrets.BLOGGER_BLOG_ID }}
           PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
+          PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
+          PIXABAY_ENABLE: ${{ secrets.PIXABAY_ENABLE }}
           OWNER_KEY_REQUIRED: ${{ secrets.OWNER_KEY_REQUIRED }}
           OWNER_KEY: ${{ secrets.OWNER_KEY }}
         run: |

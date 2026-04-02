@@ -52,5 +52,6 @@ Thumbs.db
 token.json
 client_secret.json
 logs/
-content/posted/
+content/used/
 __pycache__/
+logs/cache/
