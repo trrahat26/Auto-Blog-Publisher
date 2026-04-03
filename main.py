@@ -284,6 +284,7 @@ def pick_template(seed):
         ("Why {k} Matters", "What You’ll Learn", "Quick Actions"),
         ("The Core Idea", "Practical Steps", "Common Mistakes"),
         ("Big Picture", "Key Details", "Next Moves"),
+        ("The Problem", "The Fix", "The Payoff"),
     ]
     idx = abs(hash(seed)) % len(templates)
     return templates[idx]
@@ -305,6 +306,30 @@ def make_bullets(keywords):
     items = []
     for kw in keywords[:5]:
         items.append(f"{kw.title()}: focus on one practical improvement.")
+    return items
+
+
+def make_cta(keyword):
+    if keyword:
+        return f"Want more on {keyword}? Bookmark this page and check back tomorrow."
+    return "Bookmark this page for daily tips and updates."
+
+
+def make_faq(keyword):
+    if not keyword:
+        return []
+    return [
+        (f"What is {keyword}?", f"{keyword.title()} is a focus area that helps you improve outcomes with small, deliberate steps."),
+        (f"How do I get started with {keyword}?", f"Start by choosing one small action and repeat it daily. Progress compounds fast."),
+        (f"Why does {keyword} matter?", f"It saves time, reduces mistakes, and creates consistent results over time."),
+    ]
+
+
+def make_table_of_contents(headings):
+    items = []
+    for h in headings:
+        anchor = re.sub(r"[^a-z0-9]+", "-", h.lower()).strip("-")
+        items.append((h, anchor))
     return items
 
 
@@ -512,23 +537,33 @@ def build_post_html(title, raw_text, keywords, internal_links, external_links):
         paragraphs.append(" ".join(current))
 
     h2_titles = pick_template(seo_title)
+    toc_items = make_table_of_contents(list(h2_titles) + ["Quick Summary", "Related Posts", "Learn More", "FAQ"])
 
     content_parts = [f"<h1>{html.escape(seo_title)}</h1>"]
+    if toc_items:
+        toc_html = "".join(
+            f'<li><a href="#{anchor}">{html.escape(text)}</a></li>'
+            for text, anchor in toc_items
+        )
+        content_parts.append(f"<div><strong>Table of Contents</strong><ul>{toc_html}</ul></div>")
+
     hook = make_hook(keyword, meta_description)
     content_parts.append(f"<p><strong>Hook:</strong> {html.escape(hook)}</p>")
 
     for idx, para in enumerate(paragraphs[:3]):
-        content_parts.append(f"<h2>{html.escape(h2_titles[idx])}</h2>")
+        heading = h2_titles[idx]
+        anchor = re.sub(r"[^a-z0-9]+", "-", heading.lower()).strip("-")
+        content_parts.append(f"<h2 id=\"{anchor}\">{html.escape(heading)}</h2>")
         content_parts.append(f"<p>{html.escape(para)}</p>")
 
     bullet_items = make_bullets(keywords)
     if bullet_items:
-        content_parts.append("<h2>Quick Summary</h2>")
+        content_parts.append("<h2 id=\"quick-summary\">Quick Summary</h2>")
         bullets_html = "".join(f"<li>{html.escape(item)}</li>" for item in bullet_items)
         content_parts.append(f"<ul>{bullets_html}</ul>")
 
     if internal_links:
-        content_parts.append("<h2>Related Posts</h2>")
+        content_parts.append("<h2 id=\"related-posts\">Related Posts</h2>")
         links_html = "".join(
             f'<li><a href="{link}">{html.escape(text)}</a></li>'
             for text, link in internal_links
@@ -536,14 +571,23 @@ def build_post_html(title, raw_text, keywords, internal_links, external_links):
         content_parts.append(f"<ul>{links_html}</ul>")
 
     if external_links:
-        content_parts.append("<h2>Learn More</h2>")
+        content_parts.append("<h2 id=\"learn-more\">Learn More</h2>")
         links_html = "".join(
             f'<li><a href="{link}" rel="nofollow noopener">{html.escape(text)}</a></li>'
             for text, link in external_links
         )
         content_parts.append(f"<ul>{links_html}</ul>")
 
+    faq_items = make_faq(keyword)
+    if faq_items:
+        content_parts.append("<h2 id=\"faq\">FAQ</h2>")
+        faq_html = []
+        for q, a in faq_items:
+            faq_html.append(f"<p><strong>{html.escape(q)}</strong><br/>{html.escape(a)}</p>")
+        content_parts.append("\n".join(faq_html))
+
     content_parts.append(f"<p><strong>Conclusion:</strong> {html.escape(make_conclusion(keyword))}</p>")
+    content_parts.append(f"<p><strong>CTA:</strong> {html.escape(make_cta(keyword))}</p>")
 
     hashtags = " ".join(f"#{kw}" for kw in keywords[:5])
     if hashtags:
