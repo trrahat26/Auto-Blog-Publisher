@@ -264,6 +264,50 @@ def generate_meta_description(text, keyword):
     return clean
 
 
+def title_case(text):
+    words = text.split()
+    if not words:
+        return text
+    minor = {"and", "or", "the", "a", "an", "of", "to", "in", "on", "for"}
+    out = []
+    for i, w in enumerate(words):
+        lower = w.lower()
+        if i == 0 or lower not in minor:
+            out.append(lower.capitalize())
+        else:
+            out.append(lower)
+    return " ".join(out)
+
+
+def pick_template(seed):
+    templates = [
+        ("Why {k} Matters", "What You’ll Learn", "Quick Actions"),
+        ("The Core Idea", "Practical Steps", "Common Mistakes"),
+        ("Big Picture", "Key Details", "Next Moves"),
+    ]
+    idx = abs(hash(seed)) % len(templates)
+    return templates[idx]
+
+
+def make_hook(keyword, meta_description):
+    if keyword:
+        return f"{keyword.title()} is changing how people work and decide. {meta_description}"
+    return meta_description
+
+
+def make_conclusion(keyword):
+    if keyword:
+        return f"Bottom line: small moves in {keyword} create big results over time."
+    return "Bottom line: small, consistent steps beat big, random effort."
+
+
+def make_bullets(keywords):
+    items = []
+    for kw in keywords[:5]:
+        items.append(f"{kw.title()}: focus on one practical improvement.")
+    return items
+
+
 def generate_free_ai_text(seed_text, keyword):
     if not FREE_AI_ENABLED:
         return None
@@ -446,8 +490,9 @@ def inject_images(content, images):
 
 def build_post_html(title, raw_text, keywords, internal_links, external_links):
     keyword = keywords[0] if keywords else ""
-    seo_title = generate_seo_title(title, keyword)
+    seo_title = generate_seo_title(title_case(title), keyword)
     meta_description = generate_meta_description(raw_text, keyword)
+
     ai_text = generate_free_ai_text(raw_text, keyword)
     base_text = ai_text if ai_text else raw_text
 
@@ -466,18 +511,21 @@ def build_post_html(title, raw_text, keywords, internal_links, external_links):
     if current:
         paragraphs.append(" ".join(current))
 
-    h2_titles = [
-        f"Why {keyword.title()} Matters" if keyword else "Why It Matters",
-        "Key Takeaways",
-        "Practical Tips",
-    ]
+    h2_titles = pick_template(seo_title)
 
     content_parts = [f"<h1>{html.escape(seo_title)}</h1>"]
-    content_parts.append(f"<p><strong>Hook:</strong> {html.escape(meta_description)}</p>")
+    hook = make_hook(keyword, meta_description)
+    content_parts.append(f"<p><strong>Hook:</strong> {html.escape(hook)}</p>")
 
     for idx, para in enumerate(paragraphs[:3]):
         content_parts.append(f"<h2>{html.escape(h2_titles[idx])}</h2>")
         content_parts.append(f"<p>{html.escape(para)}</p>")
+
+    bullet_items = make_bullets(keywords)
+    if bullet_items:
+        content_parts.append("<h2>Quick Summary</h2>")
+        bullets_html = "".join(f"<li>{html.escape(item)}</li>" for item in bullet_items)
+        content_parts.append(f"<ul>{bullets_html}</ul>")
 
     if internal_links:
         content_parts.append("<h2>Related Posts</h2>")
@@ -494,6 +542,8 @@ def build_post_html(title, raw_text, keywords, internal_links, external_links):
             for text, link in external_links
         )
         content_parts.append(f"<ul>{links_html}</ul>")
+
+    content_parts.append(f"<p><strong>Conclusion:</strong> {html.escape(make_conclusion(keyword))}</p>")
 
     hashtags = " ".join(f"#{kw}" for kw in keywords[:5])
     if hashtags:
