@@ -994,9 +994,13 @@ body::before {
 <div class='divider'><hr class='divider-line'/></div>
 
 <div class='blog-posts'>
-  <b:section id='main' showaddelement='no'>
+  <b:section id='main' class='main' showaddelement='no' maxwidgets='1'>
     <b:widget id='Blog1' type='Blog' title='Posts'>
       <b:includable id='main'>
+        <b:include data='posts' name='posts'/>
+      </b:includable>
+
+      <b:includable id='posts'>
         <b:loop values='data:posts' var='post'>
 
           <article class='post-outer'>
