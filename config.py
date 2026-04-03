@@ -29,8 +29,9 @@ ARCHIVE_POSTED = True
 USED_DIR = os.path.join(CONTENT_DIR, "used")
 
 # Daily scheduler (fixed time)
-DAILY_TIME_HHMM = os.getenv("DAILY_TIME_HHMM", "18:30").strip()
-DAILY_TIMEZONE = os.getenv("DAILY_TIMEZONE", "Asia/Kolkata").strip()
+# Default set for Tier-1 audience (US Eastern at 8:00 PM)
+DAILY_TIME_HHMM = os.getenv("DAILY_TIME_HHMM", "20:00").strip()
+DAILY_TIMEZONE = os.getenv("DAILY_TIMEZONE", "America/New_York").strip()
 MAX_POSTS_PER_DAY = int(os.getenv("MAX_POSTS_PER_DAY", "3"))
 
 # Optional: Pexels image enrichment
@@ -50,6 +51,12 @@ MAX_IMAGES_PER_POST = int(os.getenv("MAX_IMAGES_PER_POST", "3"))
 
 # Cache
 CACHE_DIR = os.path.join(LOG_DIR, "cache")
+
+# Free AI (local) options
+FREE_AI_ENABLED = os.getenv("FREE_AI_ENABLED", "false").strip().lower() == "true"
+FREE_AI_PROVIDER = os.getenv("FREE_AI_PROVIDER", "ollama").strip().lower()
+OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434").strip()
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.1").strip()
 
 # Optional: owner lock (set both env vars to enable)
 OWNER_KEY_REQUIRED = os.getenv("OWNER_KEY_REQUIRED", "").strip()

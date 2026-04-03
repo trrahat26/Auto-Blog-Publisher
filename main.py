@@ -19,10 +19,14 @@ from config import (
     CONTENT_DIR,
     DAILY_TIMEZONE,
     DAILY_TIME_HHMM,
+    FREE_AI_ENABLED,
+    FREE_AI_PROVIDER,
     LOG_DIR,
     LOG_FILE,
     MAX_IMAGES_PER_POST,
     MAX_POSTS_PER_DAY,
+    OLLAMA_MODEL,
+    OLLAMA_URL,
     OWNER_KEY_ENV,
     OWNER_KEY_REQUIRED,
     PIXABAY_API_KEY,
@@ -260,6 +264,44 @@ def generate_meta_description(text, keyword):
     return clean
 
 
+def generate_free_ai_text(seed_text, keyword):
+    if not FREE_AI_ENABLED:
+        return None
+
+    if FREE_AI_PROVIDER != "ollama":
+        return None
+
+    if not OLLAMA_MODEL:
+        return None
+
+    prompt = (
+        "Write a short, engaging blog post draft in clear, simple English. "
+        "Use a curiosity-driven hook, short sentences, and 2-3 sections with headings. "
+        "End with a concise conclusion line. "
+        f"Main topic/seed: {seed_text.strip()}\n"
+        f"Primary keyword: {keyword}\n"
+    )
+
+    payload = {
+        "model": OLLAMA_MODEL,
+        "prompt": prompt,
+        "stream": False,
+    }
+
+    try:
+        req = urllib.request.Request(
+            f"{OLLAMA_URL}/api/generate",
+            data=json.dumps(payload).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+        )
+        with urllib.request.urlopen(req, timeout=30) as response:
+            data = json.loads(response.read().decode("utf-8"))
+        return data.get("response", "").strip() or None
+    except Exception:
+        logging.exception("Free AI generation failed")
+        return None
+
+
 def fetch_pexels_image(query, cache):
     if not PEXELS_API_KEY:
         return None
@@ -406,8 +448,10 @@ def build_post_html(title, raw_text, keywords, internal_links, external_links):
     keyword = keywords[0] if keywords else ""
     seo_title = generate_seo_title(title, keyword)
     meta_description = generate_meta_description(raw_text, keyword)
+    ai_text = generate_free_ai_text(raw_text, keyword)
+    base_text = ai_text if ai_text else raw_text
 
-    sentences = re.split(r"(?<=[.!?])\s+", strip_html(raw_text))
+    sentences = re.split(r"(?<=[.!?])\s+", strip_html(base_text))
     body_sentences = [s for s in sentences if s]
     if not body_sentences:
         body_sentences = [meta_description]
