@@ -37,6 +37,7 @@ from config import (
     PEXELS_ATTRIBUTION,
     PEXELS_LOCALE,
     PEXELS_ORIENTATION,
+    FEATURED_IMAGE_ENABLED,
     USED_DIR,
 )
 
@@ -513,6 +514,35 @@ def inject_images(content, images):
     return "\n".join(output)
 
 
+def build_featured_image_html(image):
+    kw, url, provider, credit = image
+    alt_text = html.escape(kw) if kw else "Post image"
+    if PEXELS_ATTRIBUTION and provider == "Pexels" and credit:
+        return "\n".join(
+            [
+                '<figure class="featured-image">',
+                f'<img src="{url}" alt="{alt_text}" loading="lazy"/>',
+                f"<figcaption>Photo by {html.escape(credit)} on <a href=\"https://www.pexels.com\">Pexels</a></figcaption>",
+                "</figure>",
+            ]
+        )
+    return f'<figure class="featured-image"><img src="{url}" alt="{alt_text}" loading="lazy"/></figure>'
+
+
+def apply_featured_image(content, images):
+    if not (FEATURED_IMAGE_ENABLED and images):
+        return content, images
+    if "<img" in content.lower():
+        return content, images
+
+    featured_html = build_featured_image_html(images[0])
+    if "{{featured_image}}" in content:
+        content = content.replace("{{featured_image}}", featured_html)
+    else:
+        content = featured_html + "\n" + content
+    return content, images[1:]
+
+
 def build_post_html(title, raw_text, keywords, internal_links, external_links):
     keyword = keywords[0] if keywords else ""
     seo_title = generate_seo_title(title_case(title), keyword)
@@ -668,6 +698,7 @@ def run_once():
                     title, raw_text, keywords, internal_links, external_links
                 )
                 images = build_image_blocks(keywords, cache, max_images=MAX_IMAGES_PER_POST)
+                seo_html, images = apply_featured_image(seo_html, images)
                 seo_html = inject_images(seo_html, images)
                 labels = keywords[:10]
                 logging.info("SEO keywords used: %s", ", ".join(labels))
@@ -685,6 +716,7 @@ def run_once():
     seo_title, seo_html, _ = build_post_html(title, content, keywords, [], [])
     cache = {}
     images = build_image_blocks(keywords, cache, max_images=MAX_IMAGES_PER_POST)
+    seo_html, images = apply_featured_image(seo_html, images)
     seo_html = inject_images(seo_html, images)
     post_with_retry(seo_title, seo_html, labels=keywords[:10])
     print("Posted 1 generated article")

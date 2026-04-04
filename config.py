@@ -48,6 +48,7 @@ PIXABAY_LANG = os.getenv("PIXABAY_LANG", "en").strip()
 
 # Images
 MAX_IMAGES_PER_POST = int(os.getenv("MAX_IMAGES_PER_POST", "3"))
+FEATURED_IMAGE_ENABLED = os.getenv("FEATURED_IMAGE_ENABLED", "true").strip().lower() == "true"
 
 # Cache
 CACHE_DIR = os.path.join(LOG_DIR, "cache")

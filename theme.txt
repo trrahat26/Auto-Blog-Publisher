@@ -1,0 +1,332 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE html>
+<html b:css='false' b:defaultwidgetversion='2' b:layoutsVersion='3' b:responsive='true'
+      expr:dir='data:blog.languageDirection' expr:lang='data:blog.locale'
+      xmlns='http://www.w3.org/1999/xhtml'
+      xmlns:b='http://www.google.com/2005/gml/b'
+      xmlns:data='http://www.google.com/2005/gml/data'
+      xmlns:expr='http://www.google.com/2005/gml/expr'>
+<head>
+  <meta content='width=device-width, initial-scale=1' name='viewport'/>
+  <title><data:view.title.escaped/></title>
+  <b:include data='blog' name='all-head-content'/>
+
+  <b:skin><![CDATA[
+  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Inter:wght@400;500;600&display=swap');
+
+  :root {
+    --bg: #f7f3ee;
+    --surface: #ffffff;
+    --text: #1b1b1b;
+    --muted: #6b6b6b;
+    --accent: #2f6f4f;
+    --accent-2: #d9cbb9;
+    --border: rgba(0,0,0,0.08);
+    --shadow: 0 10px 30px rgba(0,0,0,0.08);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 16px/1.7 "Inter", sans-serif;
+  }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { opacity: 0.85; }
+
+  .page { min-height: 100vh; display: flex; flex-direction: column; }
+  .site-wrap { width: min(1200px, 92vw); margin: 0 auto; }
+
+  .header {
+    padding: 28px 0 18px;
+    border-bottom: 1px solid var(--border);
+  }
+  .header h1 {
+    font: 700 32px/1.2 "Playfair Display", serif;
+    margin: 0;
+  }
+  .header p { margin: 8px 0 0; color: var(--muted); }
+
+  .nav { margin-top: 16px; }
+  .nav ul { list-style: none; padding: 0; margin: 0; display: flex; gap: 18px; flex-wrap: wrap; }
+  .nav a {
+    font-weight: 600;
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text);
+  }
+
+  .search-bar { margin-top: 16px; }
+  .search-bar form { display: flex; gap: 8px; }
+  .search-bar input[type="text"] {
+    flex: 1;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font: inherit;
+  }
+  .search-bar input[type="submit"] {
+    padding: 10px 14px;
+    border: 0;
+    border-radius: 8px;
+    background: var(--accent);
+    color: #fff;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .hero {
+    margin: 30px 0;
+    background: linear-gradient(135deg, #fdf9f3, #f3f7f2);
+    border-radius: 18px;
+    padding: 28px;
+    border: 1px solid var(--border);
+    display: grid;
+    grid-template-columns: 1.3fr 1fr;
+    gap: 20px;
+  }
+  .hero h2 { font: 700 40px/1.1 "Playfair Display", serif; margin: 0 0 10px; }
+  .hero p { margin: 0; color: var(--muted); }
+  .hero .hero-box { background: #eef2ee; border-radius: 14px; min-height: 180px; box-shadow: var(--shadow); }
+
+  .main-grid { display: grid; grid-template-columns: 1fr 320px; gap: 26px; }
+
+  .post-card {
+    background: var(--surface);
+    border-radius: 14px;
+    border: 1px solid var(--border);
+    overflow: hidden;
+    box-shadow: var(--shadow);
+    margin-bottom: 22px;
+  }
+  .post-thumb img { width: 100%; height: auto; display: block; }
+  .post-content { padding: 20px 22px 22px; }
+  .post-title { font: 700 26px/1.2 "Playfair Display", serif; margin: 0 0 8px; }
+  .post-meta { font-size: 13px; color: var(--muted); margin-bottom: 12px; }
+  .post-snippet { color: #2c2c2c; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+
+  .post-body img, .featured-image img { max-width: 100%; height: auto; display: block; }
+  .featured-image { margin: 0 0 18px; }
+
+  .labels a {
+    background: rgba(47,111,79,0.1);
+    color: var(--accent);
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 12px;
+    margin-right: 6px;
+    display: inline-block;
+  }
+
+  .sidebar .widget {
+    background: var(--surface);
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    padding: 16px 18px;
+    margin-bottom: 18px;
+  }
+  .sidebar .widget .title { font: 700 18px/1.3 "Playfair Display", serif; margin: 0 0 10px; }
+
+  .footer {
+    margin-top: auto;
+    padding: 24px 0;
+    border-top: 1px solid var(--border);
+    text-align: center;
+    color: var(--muted);
+    font-size: 13px;
+  }
+
+  @media (max-width: 900px) {
+    .hero { grid-template-columns: 1fr; }
+    .main-grid { grid-template-columns: 1fr; }
+  }
+  ]]></b:skin>
+
+  <b:template-skin><![CDATA[
+    body#layout .main-grid, body#layout .hero { display: block; }
+    body#layout .sidebar { width: 100%; }
+  ]]></b:template-skin>
+
+  <b:defaultmarkups>
+    <b:defaultmarkup type='Blog'>
+      <b:includable id='postThumbnail' var='post'>
+        <b:if cond='data:post.featuredImage or data:post.firstImageUrl or data:post.thumbnailUrl'>
+          <a class='post-thumb' expr:href='data:post.url'>
+            <img expr:src='data:post.featuredImage ?: data:post.firstImageUrl ?: data:post.thumbnailUrl'
+                 expr:alt='data:post.title'/>
+          </a>
+        </b:if>
+      </b:includable>
+
+      <b:includable id='post' var='post'>
+        <article class='post-card'>
+          <b:include data='post' name='postThumbnail'/>
+          <div class='post-content'>
+            <h2 class='post-title'>
+              <a expr:href='data:post.url'><data:post.title/></a>
+            </h2>
+            <div class='post-meta'>
+              <b:if cond='data:post.timestamp'>
+                <data:post.timestamp/>
+              </b:if>
+              <b:if cond='data:post.numberOfComments'>
+                · <a expr:href='data:post.commentsUrl ?: data:post.url'>
+                  <data:post.numberOfComments/> comments
+                </a>
+              </b:if>
+            </div>
+
+            <b:if cond='data:view.isSingleItem'>
+              <div class='post-body entry-content'>
+                <data:post.body/>
+              </div>
+            <b:else/>
+              <div class='post-snippet'>
+                <data:post.snippet/>
+              </div>
+            </b:if>
+
+            <b:if cond='data:post.labels and not data:post.labels.empty'>
+              <div class='labels'>
+                <b:loop values='data:post.labels' var='label'>
+                  <a expr:href='data:label.url'><data:label.name/></a>
+                </b:loop>
+              </div>
+            </b:if>
+          </div>
+        </article>
+
+        <b:if cond='data:view.isSingleItem'>
+          <b:include data='post' name='comments'/>
+        </b:if>
+      </b:includable>
+    </b:defaultmarkup>
+  </b:defaultmarkups>
+</head>
+
+<body>
+  <b:class cond='data:view.isMultipleItems' name='feed-view'/>
+  <b:class cond='data:view.isSingleItem' name='item-view'/>
+
+  <div class='page'>
+    <div class='site-wrap'>
+
+      <header class='header'>
+        <b:section id='header' name='Header' showaddelement='false'>
+          <b:widget id='Header1' locked='true' title='Header' type='Header' visible='true'>
+            <b:includable id='main'>
+              <h1><data:blog.title/></h1>
+              <p><data:blog.description/></p>
+            </b:includable>
+          </b:widget>
+        </b:section>
+
+        <nav class='nav'>
+          <b:section id='page_list_top' name='Page List (Top)' showaddelement='false'>
+            <b:widget id='PageList1' locked='true' title='' type='PageList' visible='true'>
+              <b:includable id='main'>
+                <ul>
+                  <b:loop values='data:links' var='link'>
+                    <li><a expr:href='data:link.href'><data:link.title/></a></li>
+                  </b:loop>
+                </ul>
+              </b:includable>
+            </b:widget>
+          </b:section>
+        </nav>
+
+        <div class='search-bar'>
+          <b:section id='search_top' name='Search (Top)' showaddelement='false'>
+            <b:widget id='BlogSearch1' locked='true' title='Search This Blog' type='BlogSearch' visible='true'>
+              <b:includable id='main'>
+                <div class='widget-content' role='search'>
+                  <form expr:action='data:blog.searchUrl'>
+                    <b:attr cond='not data:view.isPreview' name='target' value='_top'/>
+                    <b:include name='urlParamsAsFormInput'/>
+                    <input type='text' name='q' expr:placeholder='data:messages.searchThisBlog'/>
+                    <input type='submit' value='Search'/>
+                  </form>
+                </div>
+              </b:includable>
+            </b:widget>
+          </b:section>
+        </div>
+      </header>
+
+      <section class='hero'>
+        <div>
+          <h2>Smarter ideas, faster results</h2>
+          <p>Actionable posts on AI, money, productivity, and motivation — built for daily growth.</p>
+        </div>
+        <div class='hero-box'></div>
+      </section>
+
+      <div class='main-grid'>
+        <main>
+          <b:section class='featured-post' id='featured_post' name='Featured Post' showaddelement='false'>
+            <b:widget cond='data:view.isHomepage' id='FeaturedPost1' locked='true' title='' type='FeaturedPost' visible='true'>
+              <b:widget-settings>
+                <b:widget-setting name='showSnippet'>true</b:widget-setting>
+                <b:widget-setting name='showPostTitle'>true</b:widget-setting>
+                <b:widget-setting name='showFirstImage'>true</b:widget-setting>
+                <b:widget-setting name='useMostRecentPost'>true</b:widget-setting>
+              </b:widget-settings>
+              <b:includable id='main'>
+                <b:include name='widget-title'/>
+                <div class='widget-content'>
+                  <b:include name='snippetedPosts'/>
+                </div>
+              </b:includable>
+            </b:widget>
+          </b:section>
+
+          <b:section id='page_body' name='Page Body' showaddelement='false'>
+            <b:widget id='Blog1' locked='true' title='Blog Posts' type='Blog' visible='true'>
+              <b:widget-settings>
+                <b:widget-setting name='showDateHeader'>false</b:widget-setting>
+                <b:widget-setting name='showShareButtons'>true</b:widget-setting>
+                <b:widget-setting name='showCommentLink'>true</b:widget-setting>
+                <b:widget-setting name='showAuthor'>false</b:widget-setting>
+                <b:widget-setting name='showLabels'>true</b:widget-setting>
+                <b:widget-setting name='showTimestamp'>true</b:widget-setting>
+              </b:widget-settings>
+              <b:includable id='main'>
+                <b:include name='super.main'/>
+              </b:includable>
+            </b:widget>
+          </b:section>
+        </main>
+
+        <aside class='sidebar'>
+          <b:section id='sidebar' name='Sidebar' preferred='yes'>
+            <b:widget id='Profile1' locked='false' title='About Me' type='Profile' visible='false'/>
+            <b:widget id='PopularPosts1' locked='false' title='Popular Posts' type='PopularPosts' visible='true'>
+              <b:widget-settings>
+                <b:widget-setting name='numItemsToShow'>5</b:widget-setting>
+                <b:widget-setting name='showThumbnails'>true</b:widget-setting>
+                <b:widget-setting name='showSnippets'>true</b:widget-setting>
+                <b:widget-setting name='timeRange'>LAST_YEAR</b:widget-setting>
+              </b:widget-settings>
+            </b:widget>
+            <b:widget id='Label1' locked='false' title='Labels' type='Label' visible='true'/>
+            <b:widget id='BlogArchive1' locked='false' title='Archive' type='BlogArchive' visible='true'/>
+            <b:widget id='ReportAbuse1' locked='true' title='' type='ReportAbuse' visible='true'/>
+          </b:section>
+        </aside>
+      </div>
+    </div>
+
+    <footer class='footer'>
+      <b:section id='footer' name='Footer' showaddelement='false' tag='footer'>
+        <b:widget id='Attribution1' locked='true' title='' type='Attribution' visible='true'>
+          <b:includable id='main'>
+            <data:messages.poweredByBlogger/>
+          </b:includable>
+        </b:widget>
+      </b:section>
+    </footer>
+  </div>
+</body>
+</html>
