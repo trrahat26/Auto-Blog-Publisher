@@ -1244,24 +1244,39 @@ body#layout .pro-hero, body#layout .pro-newsletter, body#layout .pro-section-hea
           </b:with>
         </b:includable>
         <b:includable id='postBodySnippet' var='post'>
-          <div class='post-body entry-content' expr:id='&quot;post-snippet-&quot; + data:post.id'>
-            <b:if cond='data:post.featuredImage and not data:view.isMultipleItems'>
-              <b:with value='&quot;post-&quot; + data:post.id' var='className'>
-                <style>
-                  .<data:className/> {background-image:url(<b:eval expr='resizeImage(data:post.featuredImage, 385, &quot;385:185&quot;).cssEscaped'/>);}
-                  @media (max-width:285px){.<data:className/>{background-image:url(<b:eval expr='resizeImage(data:post.featuredImage, 285, &quot;285:185&quot;).cssEscaped'/>);}}
-                  @media (max-width:385px) and (min-width:286px){.<data:className/>{background-image:url(<b:eval expr='resizeImage(data:post.featuredImage, 385, &quot;385:185&quot;).cssEscaped'/>);}}
-                  @media (max-width:485px) and (min-width:386px){.<data:className/>{background-image:url(<b:eval expr='resizeImage(data:post.featuredImage, 485, &quot;485:185&quot;).cssEscaped'/>);}}
-                  @media (max-width:745px) and (min-width:486px){.<data:className/>{background-image:url(<b:eval expr='resizeImage(data:post.featuredImage, 585, &quot;585:185&quot;).cssEscaped'/>);}}
-                </style>
-                <div class='snippet-thumbnail-container'>
-                  <div expr:class='&quot;snippet-thumbnail &quot; + data:className'/>
-                </div>
-              </b:with>
+  <div class='post-body entry-content' expr:id='&quot;post-snippet-&quot; + data:post.id'>
+    <b:if cond='data:view.isMultipleItems'>
+      <div class='snippet-thumbnail-container'>
+        <b:if cond='data:post.featuredImage'>
+          <img expr:alt='data:post.title' expr:src='data:post.featuredImage'/>
+        <b:else/>
+          <b:if cond='data:post.firstImageUrl'>
+            <img expr:alt='data:post.title' expr:src='data:post.firstImageUrl'/>
+          <b:else/>
+            <b:if cond='data:post.thumbnailUrl'>
+              <img expr:alt='data:post.title' expr:src='data:post.thumbnailUrl'/>
+            <b:else/>
+              <div class='post-image-placeholder'>
+                <svg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='currentColor'>
+                  <path stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5'
+                    d='M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z'/>
+                </svg>
+              </div>
             </b:if>
-            <div style='clear:both;'/>
-          </div>
-        </b:includable>
+          </b:if>
+        </b:if>
+      </div>
+      <div class='post-snippet'>
+        <b:if cond='data:post.snippet'>
+          <data:post.snippet/>
+        <b:else/>
+          <data:post.body/>
+        </b:if>
+      </div>
+    </b:if>
+    <div style='clear:both;'/>
+  </div>
+</b:includable>
         <b:includable id='postJumpLink' var='post'><!-- no read more link --></b:includable>
         <b:includable id='previousPageLink'><!-- no prev page --></b:includable>
         <b:includable id='homePageLink'><!-- no home link --></b:includable>
@@ -2026,24 +2041,39 @@ body#layout .pro-hero, body#layout .pro-newsletter, body#layout .pro-section-hea
                       </div>
                     </b:includable>
                     <b:includable id='postBodySnippet' var='post'>
-                      <div class='post-body entry-content' expr:id='&quot;post-snippet-&quot; + data:post.id'>
-                        <b:if cond='data:post.featuredImage and not data:view.isMultipleItems'>
-                          <b:with value='&quot;post-&quot; + data:post.id' var='className'>
-                            <style>
-                              .<data:className/>{background-image:url(<b:eval expr='resizeImage(data:post.featuredImage, 385, &quot;385:185&quot;).cssEscaped'/>);}
-                              @media (max-width:285px){.<data:className/>{background-image:url(<b:eval expr='resizeImage(data:post.featuredImage, 285, &quot;285:185&quot;).cssEscaped'/>);}}
-                              @media (max-width:385px) and (min-width:286px){.<data:className/>{background-image:url(<b:eval expr='resizeImage(data:post.featuredImage, 385, &quot;385:185&quot;).cssEscaped'/>);}}
-                              @media (max-width:485px) and (min-width:386px){.<data:className/>{background-image:url(<b:eval expr='resizeImage(data:post.featuredImage, 485, &quot;485:185&quot;).cssEscaped'/>);}}
-                              @media (max-width:745px) and (min-width:486px){.<data:className/>{background-image:url(<b:eval expr='resizeImage(data:post.featuredImage, 585, &quot;585:185&quot;).cssEscaped'/>);}}
-                            </style>
-                            <div class='snippet-thumbnail-container'>
-                              <div expr:class='&quot;snippet-thumbnail &quot; + data:className'/>
-                            </div>
-                          </b:with>
-                        </b:if>
-                        <div style='clear:both;'/>
-                      </div>
-                    </b:includable>
+  <div class='post-body entry-content' expr:id='&quot;post-snippet-&quot; + data:post.id'>
+    <b:if cond='data:view.isMultipleItems'>
+      <div class='snippet-thumbnail-container'>
+        <b:if cond='data:post.featuredImage'>
+          <img expr:alt='data:post.title' expr:src='data:post.featuredImage'/>
+        <b:else/>
+          <b:if cond='data:post.firstImageUrl'>
+            <img expr:alt='data:post.title' expr:src='data:post.firstImageUrl'/>
+          <b:else/>
+            <b:if cond='data:post.thumbnailUrl'>
+              <img expr:alt='data:post.title' expr:src='data:post.thumbnailUrl'/>
+            <b:else/>
+              <div class='post-image-placeholder'>
+                <svg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='currentColor'>
+                  <path stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5'
+                    d='M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z'/>
+                </svg>
+              </div>
+            </b:if>
+          </b:if>
+        </b:if>
+      </div>
+      <div class='post-snippet'>
+        <b:if cond='data:post.snippet'>
+          <data:post.snippet/>
+        <b:else/>
+          <data:post.body/>
+        </b:if>
+      </div>
+    </b:if>
+    <div style='clear:both;'/>
+  </div>
+</b:includable>
                     <b:includable id='postCommentsAndAd'>
                       <b:include cond='not data:view.isHomepage or data:widgets.FeaturedPost none (w =&gt; w.sectionId == &quot;featured_post&quot; and w.postId == data:post.id)' name='super.postCommentsAndAd'/>
                     </b:includable>
@@ -2544,3 +2574,6 @@ body#layout .pro-hero, body#layout .pro-newsletter, body#layout .pro-section-hea
 
   </body>
 </html>
+
+
+
