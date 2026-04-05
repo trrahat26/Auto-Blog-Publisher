@@ -259,8 +259,20 @@ def is_generic_title(title):
 
 def build_human_title(keyword):
     if keyword:
-        return f"Simple Ways to Improve {keyword.title()}"
-    return "Today’s Quick Read"
+        templates = [
+            "How to Improve {k} Without Overthinking",
+            "The Quiet Power of {k}",
+            "A Clear, Simple Guide to {k}",
+            "Small Changes That Lift Your {k}",
+            "What Actually Works for {k}",
+            "The No‑Stress Way to Build Better {k}",
+            "The 5‑Minute Habit That Improves Your {k}",
+            "The {k} Reset You Can Start Today",
+            "{k} That Actually Sticks",
+        ]
+        tmpl = templates[abs(hash(keyword)) % len(templates)]
+        return tmpl.format(k=keyword.title())
+    return "A Quick Read for Today"
 
 
 def generate_seo_title(base_title, keyword):
@@ -554,17 +566,20 @@ def build_featured_image_html(image):
 
 
 def apply_featured_image(content, images):
-    if not (FEATURED_IMAGE_ENABLED and images):
+    if not FEATURED_IMAGE_ENABLED:
         return content, images
     if "<img" in content.lower():
         return content, images
 
+    if not images:
+        return content, images
     featured_html = build_featured_image_html(images[0])
+
     if "{{featured_image}}" in content:
         content = content.replace("{{featured_image}}", featured_html)
     else:
         content = featured_html + "\n" + content
-    return content, images[1:]
+    return content, images[1:] if images else images
 
 
 def build_post_html(title, raw_text, keywords, internal_links, external_links):
@@ -594,6 +609,11 @@ def build_post_html(title, raw_text, keywords, internal_links, external_links):
     toc_items = make_table_of_contents(list(h2_titles) + ["Quick Summary", "Related Posts", "Learn More", "FAQ"])
 
     content_parts = [f"<h1>{html.escape(seo_title)}</h1>"]
+    # Strong lead for better snippets
+    lead = meta_description
+    if keyword and keyword.lower() not in lead.lower():
+        lead = f"{keyword.title()} — {lead}"
+    content_parts.append(f"<p><em>{html.escape(lead)}</em></p>")
     if toc_items:
         toc_html = "".join(
             f'<li><a href="#{anchor}">{html.escape(text)}</a></li>'
@@ -602,7 +622,13 @@ def build_post_html(title, raw_text, keywords, internal_links, external_links):
         content_parts.append(f"<div><strong>Table of Contents</strong><ul>{toc_html}</ul></div>")
 
     hook = make_hook(keyword, meta_description)
-    content_parts.append(f"<p><strong>Hook:</strong> {html.escape(hook)}</p>")
+    content_parts.append(f"<p>{html.escape(hook)}</p>")
+
+    # TL;DR box
+    if paragraphs:
+        tldr_points = paragraphs[:2]
+        tldr_html = "".join(f"<li>{html.escape(p)}</li>" for p in tldr_points)
+        content_parts.append("<div><strong>TL;DR</strong><ul>" + tldr_html + "</ul></div>")
 
     for idx, para in enumerate(paragraphs[:3]):
         heading = h2_titles[idx]
