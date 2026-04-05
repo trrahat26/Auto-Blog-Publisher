@@ -63,15 +63,30 @@ def ensure_dirs():
     os.makedirs(CACHE_DIR, exist_ok=True)
 
 
+def normalize_title(title, fallback_title):
+    title = (title or "").strip()
+    if not title:
+        return fallback_title
+    if title.lower().startswith("blogger:"):
+        title = title.split(":", 1)[1].strip()
+    if title.lower().startswith("automated post"):
+        return fallback_title
+    if title.lower().startswith("daily update"):
+        return fallback_title
+    if title.lower().startswith("quick update"):
+        return fallback_title
+    return title
+
+
 def extract_title(text, fallback_title):
     for line in text.splitlines():
         stripped = line.strip()
         if not stripped:
             continue
         if stripped.lower().startswith("title:"):
-            return stripped.split(":", 1)[1].strip() or fallback_title
+            return normalize_title(stripped.split(":", 1)[1].strip(), fallback_title)
         if stripped.startswith("# "):
-            return stripped[2:].strip() or fallback_title
+            return normalize_title(stripped[2:].strip(), fallback_title)
         return fallback_title
     return fallback_title
 
@@ -133,7 +148,7 @@ def load_content_items():
 
 def generate_placeholder_post():
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
-    title = f"Automated Post - {timestamp}"
+    title = f"Daily Update - {timestamp}"
 
     hashtags = "#automation #blogger #autopost"
     content = "\n".join(
@@ -234,20 +249,29 @@ def extract_keywords(text, max_keywords=10):
     return [w for w, _ in ranked[:max_keywords]]
 
 
+def is_generic_title(title):
+    t = (title or "").strip().lower()
+    if not t:
+        return True
+    generic_starts = ("automated post", "daily update", "quick update")
+    return any(t.startswith(prefix) for prefix in generic_starts)
+
+
+def build_human_title(keyword):
+    if keyword:
+        return f"Simple Ways to Improve {keyword.title()}"
+    return "Today’s Quick Read"
+
+
 def generate_seo_title(base_title, keyword):
     base_title = base_title.strip()
-    if keyword and keyword.lower() not in base_title.lower():
-        candidate = f"{keyword.title()}: {base_title}"
-    else:
-        candidate = base_title
+    base_title = normalize_title(base_title, base_title)
+    if is_generic_title(base_title):
+        base_title = build_human_title(keyword)
 
-    if len(candidate) <= 60:
-        return candidate
-
-    if keyword:
-        short = f"{keyword.title()} Guide"
-        return short[:60]
-    return candidate[:60].rstrip()
+    if len(base_title) <= 60:
+        return base_title
+    return base_title[:60].rstrip()
 
 
 def generate_meta_description(text, keyword):
