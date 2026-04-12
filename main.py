@@ -38,7 +38,10 @@ from config import (
     PEXELS_LOCALE,
     PEXELS_ORIENTATION,
     FEATURED_IMAGE_ENABLED,
+    TITLE_HISTORY_FILE,
+    TITLE_HISTORY_LIMIT,
     USED_DIR,
+    WIKIMEDIA_IMAGE_ENABLE,
 )
 
 MAX_RETRIES = 2
@@ -61,6 +64,31 @@ def ensure_dirs():
     if ARCHIVE_POSTED:
         os.makedirs(USED_DIR, exist_ok=True)
     os.makedirs(CACHE_DIR, exist_ok=True)
+
+
+def load_title_history():
+    try:
+        path = Path(TITLE_HISTORY_FILE)
+        if not path.exists():
+            return []
+        data = json.loads(path.read_text(encoding="utf-8"))
+        if isinstance(data, list):
+            return [str(x) for x in data if isinstance(x, str)]
+        return []
+    except Exception:
+        logging.exception("Failed to load title history")
+        return []
+
+
+def save_title_history(history):
+    try:
+        trimmed = history[-TITLE_HISTORY_LIMIT:]
+        Path(TITLE_HISTORY_FILE).write_text(
+            json.dumps(trimmed, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+    except Exception:
+        logging.exception("Failed to save title history")
 
 
 def normalize_title(title, fallback_title):
@@ -273,6 +301,44 @@ def build_human_title(keyword):
         tmpl = templates[abs(hash(keyword)) % len(templates)]
         return tmpl.format(k=keyword.title())
     return "A Quick Read for Today"
+
+
+def build_title_variants(keyword):
+    if keyword:
+        k = keyword.title()
+        return [
+            f"How to Improve {k} Without Overthinking",
+            f"The Quiet Power of {k}",
+            f"A Clear, Simple Guide to {k}",
+            f"Small Changes That Lift Your {k}",
+            f"What Actually Works for {k}",
+            f"The 5-Minute Habit That Improves Your {k}",
+            f"The {k} Reset You Can Start Today",
+            f"{k} That Actually Sticks",
+            f"Practical Ways to Build Better {k}",
+            f"Simple Daily Steps for Stronger {k}",
+        ]
+    return [
+        "A Quick Read for Today",
+        "Small Daily Steps That Compound",
+        "A Practical Guide for Better Results",
+        "What to Focus on This Week",
+    ]
+
+
+def ensure_unique_title(title, keyword, title_history):
+    used = {x.lower().strip() for x in title_history}
+    if title.lower().strip() not in used:
+        return title
+
+    variants = build_title_variants(keyword)
+    for candidate in variants:
+        if candidate.lower().strip() not in used:
+            return candidate[:60]
+
+    suffix = datetime.now().strftime("%b %Y")
+    fallback = f"{title} ({suffix})"
+    return fallback[:60]
 
 
 def generate_seo_title(base_title, keyword):
@@ -497,6 +563,56 @@ def fetch_pixabay_image(query, cache):
     return cache[cache_key]
 
 
+def fetch_wikimedia_image(query, cache):
+    if not WIKIMEDIA_IMAGE_ENABLE:
+        return None
+
+    query = query.strip()
+    if not query:
+        return None
+
+    cache_key = f"wikimedia:{query.lower()}"
+    if cache_key in cache:
+        return cache[cache_key]
+
+    params = {
+        "action": "query",
+        "generator": "search",
+        "gsrsearch": query,
+        "gsrnamespace": "6",
+        "gsrlimit": "8",
+        "prop": "imageinfo",
+        "iiprop": "url",
+        "iiurlwidth": "1280",
+        "format": "json",
+    }
+    url = "https://commons.wikimedia.org/w/api.php?" + urllib.parse.urlencode(params)
+
+    try:
+        with urllib.request.urlopen(url, timeout=15) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+    except Exception:
+        logging.exception("Wikimedia API request failed")
+        return None
+
+    pages = (payload.get("query") or {}).get("pages") or {}
+    for page in pages.values():
+        imageinfo = page.get("imageinfo") or []
+        if not imageinfo:
+            continue
+        img = imageinfo[0]
+        image_url = img.get("thumburl") or img.get("url")
+        if not image_url:
+            continue
+        lowered = image_url.lower()
+        if not lowered.endswith((".jpg", ".jpeg", ".png", ".webp")):
+            continue
+        cache[cache_key] = (image_url, "Wikimedia", None)
+        return cache[cache_key]
+
+    return None
+
+
 def build_image_blocks(keywords, cache, max_images=3):
     images = []
     for kw in keywords:
@@ -505,6 +621,8 @@ def build_image_blocks(keywords, cache, max_images=3):
         image = fetch_pexels_image(kw, cache)
         if not image:
             image = fetch_pixabay_image(kw, cache)
+        if not image:
+            image = fetch_wikimedia_image(kw, cache)
         if image:
             images.append((kw, image[0], image[1], image[2]))
     return images
@@ -628,7 +746,7 @@ def build_post_html(title, raw_text, keywords, internal_links, external_links):
     if paragraphs:
         tldr_points = paragraphs[:2]
         tldr_html = "".join(f"<li>{html.escape(p)}</li>" for p in tldr_points)
-        content_parts.append("<div><strong>TL;DR</strong><ul>" + tldr_html + "</ul></div>")
+        content_parts.append("<div class=\"tldr\"><strong>TL;DR</strong><ul>" + tldr_html + "</ul></div>")
 
     for idx, para in enumerate(paragraphs[:3]):
         heading = h2_titles[idx]
@@ -665,6 +783,23 @@ def build_post_html(title, raw_text, keywords, internal_links, external_links):
         for q, a in faq_items:
             faq_html.append(f"<p><strong>{html.escape(q)}</strong><br/>{html.escape(a)}</p>")
         content_parts.append("\n".join(faq_html))
+        faq_json = {
+            "@context": "https://schema.org",
+            "@type": "FAQPage",
+            "mainEntity": [
+                {
+                    "@type": "Question",
+                    "name": q,
+                    "acceptedAnswer": {"@type": "Answer", "text": a},
+                }
+                for q, a in faq_items
+            ],
+        }
+        content_parts.append(
+            "<script type=\"application/ld+json\">"
+            + json.dumps(faq_json, ensure_ascii=False)
+            + "</script>"
+        )
 
     content_parts.append(f"<p><strong>Conclusion:</strong> {html.escape(make_conclusion(keyword))}</p>")
     content_parts.append(f"<p><strong>CTA:</strong> {html.escape(make_cta(keyword))}</p>")
@@ -720,6 +855,8 @@ def run_once():
     authenticate()
 
     items = load_content_items()
+    title_history = load_title_history()
+
     if items:
         recent_posts = get_recent_posts(max_results=5)
         internal_links = [
@@ -747,28 +884,34 @@ def run_once():
                 seo_title, seo_html, _ = build_post_html(
                     title, raw_text, keywords, internal_links, external_links
                 )
+                seo_title = ensure_unique_title(seo_title, keywords[0] if keywords else "", title_history)
                 images = build_image_blocks(keywords, cache, max_images=MAX_IMAGES_PER_POST)
                 seo_html, images = apply_featured_image(seo_html, images)
                 seo_html = inject_images(seo_html, images)
                 labels = keywords[:10]
                 logging.info("SEO keywords used: %s", ", ".join(labels))
                 post_with_retry(seo_title, seo_html, labels=labels, source_label=path)
+                title_history.append(seo_title)
                 archive_posted_file(path)
                 posted_count += 1
             except Exception:
                 logging.exception("Failed to process file: %s", path)
                 continue
+        save_title_history(title_history)
         print(f"Posted {posted_count} article(s) from /content/")
         return
 
     title, content = generate_placeholder_post()
     keywords = extract_keywords(strip_html(content), max_keywords=10)
     seo_title, seo_html, _ = build_post_html(title, content, keywords, [], [])
+    seo_title = ensure_unique_title(seo_title, keywords[0] if keywords else "", title_history)
     cache = {}
     images = build_image_blocks(keywords, cache, max_images=MAX_IMAGES_PER_POST)
     seo_html, images = apply_featured_image(seo_html, images)
     seo_html = inject_images(seo_html, images)
     post_with_retry(seo_title, seo_html, labels=keywords[:10])
+    title_history.append(seo_title)
+    save_title_history(title_history)
     print("Posted 1 generated article")
 
 

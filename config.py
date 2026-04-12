@@ -46,12 +46,17 @@ PIXABAY_ENABLE = os.getenv("PIXABAY_ENABLE", "false").strip().lower() == "true"
 PIXABAY_ORIENTATION = os.getenv("PIXABAY_ORIENTATION", "horizontal").strip()
 PIXABAY_LANG = os.getenv("PIXABAY_LANG", "en").strip()
 
+# Optional: Wikimedia Commons fallback (no API key needed)
+WIKIMEDIA_IMAGE_ENABLE = os.getenv("WIKIMEDIA_IMAGE_ENABLE", "true").strip().lower() == "true"
+
 # Images
 MAX_IMAGES_PER_POST = int(os.getenv("MAX_IMAGES_PER_POST", "3"))
 FEATURED_IMAGE_ENABLED = os.getenv("FEATURED_IMAGE_ENABLED", "true").strip().lower() == "true"
 
 # Cache
 CACHE_DIR = os.path.join(LOG_DIR, "cache")
+TITLE_HISTORY_FILE = os.path.join(CACHE_DIR, "title_history.json")
+TITLE_HISTORY_LIMIT = int(os.getenv("TITLE_HISTORY_LIMIT", "500"))
 
 # Free AI (local) options
 FREE_AI_ENABLED = os.getenv("FREE_AI_ENABLED", "false").strip().lower() == "true"
