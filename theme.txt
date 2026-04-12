@@ -24,24 +24,26 @@
     <meta expr:content='data:post.title' name='twitter:title'/>
     <meta expr:content='data:post.snippet ?: data:blog.description' name='twitter:description'/>
     <meta expr:content='data:post.featuredImage ?: data:post.firstImageUrl ?: data:post.thumbnailUrl' name='twitter:image'/>
-    <script type='application/ld+json'>
-      {
-        "@context": "https://schema.org",
-        "@type": "BlogPosting",
-        "headline": "<data:post.title.jsonEscaped/>",
-        "description": "<data:post.snippet.jsonEscaped/>",
-        "image": "<data:post.featuredImage ?: data:post.firstImageUrl ?: data:post.thumbnailUrl/>",
-        "mainEntityOfPage": "<data:post.url/>",
-        "author": {
-          "@type": "Person",
-          "name": "<data:post.author.name.jsonEscaped/>"
-        },
-        "publisher": {
-          "@type": "Organization",
-          "name": "<data:blog.title.jsonEscaped/>"
+    <b:with value='data:post.featuredImage ?: data:post.firstImageUrl ?: data:post.thumbnailUrl' var='schemaImage'>
+      <script type='application/ld+json'>
+        {
+          "@context": "https://schema.org",
+          "@type": "BlogPosting",
+          "headline": "<data:post.title.jsonEscaped/>",
+          "description": "<data:post.snippet.jsonEscaped/>",
+          "image": "<data:schemaImage.jsonEscaped/>",
+          "mainEntityOfPage": "<data:post.url/>",
+          "author": {
+            "@type": "Person",
+            "name": "<data:post.author.name.jsonEscaped/>"
+          },
+          "publisher": {
+            "@type": "Organization",
+            "name": "<data:blog.title.jsonEscaped/>"
+          }
         }
-      }
-    </script>
+      </script>
+    </b:with>
   <b:else/>
     <meta expr:content='data:blog.description' name='description'/>
     <meta expr:content='data:blog.title' property='og:title'/>
@@ -95,18 +97,6 @@
   .search-bar input[type="submit"] {
     padding: 10px 14px; border: 0; border-radius: 8px; background: var(--accent); color: #fff; font-weight: 600; cursor: pointer;
   }
-
-  .hero {
-    margin: 30px 0;
-    background: linear-gradient(135deg, #fdf9f3, #f3f7f2);
-    border-radius: 18px;
-    padding: 28px;
-    border: 1px solid var(--border);
-    display: grid; grid-template-columns: 1.3fr 1fr; gap: 20px;
-  }
-  .hero h2 { font: 700 40px/1.1 "Playfair Display", serif; margin: 0 0 10px; }
-  .hero p { margin: 0; color: var(--muted); }
-  .hero .hero-box { background: #eef2ee; border-radius: 14px; min-height: 180px; box-shadow: var(--shadow); }
 
   .main-grid { display: grid; grid-template-columns: 1fr 320px; gap: 26px; }
 
@@ -190,13 +180,12 @@
   }
 
   @media (max-width: 900px) {
-    .hero { grid-template-columns: 1fr; }
     .main-grid { grid-template-columns: 1fr; }
   }
   ]]></b:skin>
 
   <b:template-skin><![CDATA[
-    body#layout .main-grid, body#layout .hero { display: block; }
+    body#layout .main-grid { display: block; }
     body#layout .sidebar { width: 100%; }
   ]]></b:template-skin>
 
@@ -351,14 +340,6 @@
           </b:section>
         </div>
       </header>
-
-      <section class='hero'>
-        <div>
-          <h2>Smarter ideas, faster results</h2>
-          <p>Actionable posts on AI, money, productivity, and motivation - built for daily growth.</p>
-        </div>
-        <div class='hero-box'></div>
-      </section>
 
       <div class='ad-slot ad-slot-top'>
         <strong>Homepage Ad Slot</strong><br/>

@@ -1,0 +1,15 @@
+﻿<svg width="200" height="240" viewBox="0 0 200 240" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    .text { font-family: Arial, Helvetica, sans-serif; font-weight: 700; text-anchor: middle; }
+  </style>
+  <g transform="translate(40,20)">
+    <rect x="0" y="60" width="12" height="30" fill="#2F6F4F"/>
+    <rect x="18" y="45" width="12" height="45" fill="#2F6F4F"/>
+    <rect x="36" y="30" width="12" height="60" fill="#2F6F4F"/>
+    <path d="M0 90 Q50 30 80 20" stroke="#2F6F4F" stroke-width="4" fill="none"/>
+    <polygon points="80,20 72,18 75,26" fill="#2F6F4F"/>
+  </g>
+  <text x="100" y="140" class="text" font-size="26" fill="#1B1B1B">Daily</text>
+  <text x="100" y="170" class="text" font-size="26" fill="#1B1B1B">Boost</text>
+  <text x="100" y="200" class="text" font-size="26" fill="#A88760">Pro</text>
+</svg>
