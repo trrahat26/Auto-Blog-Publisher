@@ -42,6 +42,14 @@ from config import (
     TITLE_HISTORY_LIMIT,
     USED_DIR,
     WIKIMEDIA_IMAGE_ENABLE,
+    AI_ARTICLE_ENABLED,
+    CONTENT_TOPICS,
+    GEMINI_API_KEY,
+    GEMINI_MODEL,
+    GROQ_API_KEY,
+    GROQ_MODEL,
+    GROQ_URL,
+
 )
 
 MAX_RETRIES = 2
@@ -436,42 +444,195 @@ def make_table_of_contents(headings):
     return items
 
 
-def generate_free_ai_text(seed_text, keyword):
-    if not FREE_AI_ENABLED:
+def _gemini_text(prompt, timeout=60):
+    if not GEMINI_API_KEY:
+        return None
+    url = (
+        "https://generativelanguage.googleapis.com/v1beta/models/"
+        f"{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}"
+    )
+    payload = {"contents": [{"parts": [{"text": prompt}]}]}
+    try:
+        req = urllib.request.Request(
+            url,
+            data=json.dumps(payload).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+        )
+        with urllib.request.urlopen(req, timeout=timeout) as response:
+            data = json.loads(response.read().decode("utf-8"))
+        return data["candidates"][0]["content"]["parts"][0]["text"].strip()
+    except Exception:
+        logging.exception("Gemini AI request failed")
         return None
 
-    if FREE_AI_PROVIDER != "ollama":
+
+def _groq_text(prompt, timeout=60):
+    if not GROQ_API_KEY:
+        return None
+    payload = {
+        "model": GROQ_MODEL,
+        "messages": [{"role": "user", "content": prompt}],
+        "temperature": 0.7,
+    }
+    try:
+        req = urllib.request.Request(
+            GROQ_URL,
+            data=json.dumps(payload).encode("utf-8"),
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {GROQ_API_KEY}",
+            },
+        )
+        with urllib.request.urlopen(req, timeout=timeout) as response:
+            data = json.loads(response.read().decode("utf-8"))
+        return data["choices"][0]["message"]["content"].strip()
+    except Exception:
+        logging.exception("Groq AI request failed")
         return None
 
+
+def _ollama_text(prompt, timeout=60):
     if not OLLAMA_MODEL:
         return None
-
-    prompt = (
-        "Write a short, engaging blog post draft in clear, simple English. "
-        "Use a curiosity-driven hook, short sentences, and 2-3 sections with headings. "
-        "End with a concise conclusion line. "
-        f"Main topic/seed: {seed_text.strip()}\n"
-        f"Primary keyword: {keyword}\n"
-    )
-
-    payload = {
-        "model": OLLAMA_MODEL,
-        "prompt": prompt,
-        "stream": False,
-    }
-
+    payload = {"model": OLLAMA_MODEL, "prompt": prompt, "stream": False}
     try:
         req = urllib.request.Request(
             f"{OLLAMA_URL}/api/generate",
             data=json.dumps(payload).encode("utf-8"),
             headers={"Content-Type": "application/json"},
         )
-        with urllib.request.urlopen(req, timeout=30) as response:
+        with urllib.request.urlopen(req, timeout=timeout) as response:
             data = json.loads(response.read().decode("utf-8"))
         return data.get("response", "").strip() or None
     except Exception:
-        logging.exception("Free AI generation failed")
+        logging.exception("Ollama AI request failed")
         return None
+
+
+def ask_ai(prompt, timeout=60):
+    """Try cloud AI providers (Gemini, Groq), then local Ollama, in order."""
+    if not FREE_AI_ENABLED:
+        return None
+    provider = (FREE_AI_PROVIDER or "auto").strip().lower()
+    if provider in ("gemini", "auto"):
+        text = _gemini_text(prompt, timeout)
+        if text:
+            return text
+    if provider in ("groq", "auto"):
+        text = _groq_text(prompt, timeout)
+        if text:
+            return text
+    if provider in ("ollama", "auto"):
+        text = _ollama_text(prompt, timeout)
+        if text:
+            return text
+    return None
+
+
+def generate_free_ai_text(seed_text, keyword):
+    if not FREE_AI_ENABLED:
+        return None
+    prompt = (
+        "Rewrite and expand the following blog material into clear, simple, "
+        "original English that a real reader would enjoy. Keep it concise and "
+        "use short sentences. Do not start with 'Sure' or any filler. "
+        f"\nPrimary keyword: {keyword}\nMaterial:\n{seed_text.strip()}"
+    )
+    return ask_ai(prompt)
+
+def markdown_lite_to_html(text):
+    """Convert simple AI markdown (headings, bold, lists, paragraphs) to HTML."""
+    lines_out = []
+    in_list = False
+    for raw_line in text.splitlines():
+        line = raw_line.rstrip()
+        stripped = line.strip()
+        if not stripped:
+            if in_list:
+                lines_out.append("</ul>")
+                in_list = False
+            continue
+        if stripped.startswith("### "):
+            if in_list:
+                lines_out.append("</ul>")
+                in_list = False
+            lines_out.append(f"<h3>{html.escape(stripped[4:])}</h3>")
+        elif stripped.startswith("## "):
+            if in_list:
+                lines_out.append("</ul>")
+                in_list = False
+            lines_out.append(f"<h2>{html.escape(stripped[3:])}</h2>")
+        elif stripped.startswith("# "):
+            if in_list:
+                lines_out.append("</ul>")
+                in_list = False
+            lines_out.append(f"<h1>{html.escape(stripped[2:])}</h1>")
+        elif stripped.startswith("* ") or stripped.startswith("- "):
+            item = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", stripped[2:].strip())
+            if not in_list:
+                lines_out.append("<ul>")
+                in_list = True
+            lines_out.append(f"<li>{html.escape(item)}</li>")
+        else:
+            if in_list:
+                lines_out.append("</ul>")
+                in_list = False
+            para = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", stripped)
+            lines_out.append(f"<p>{html.escape(para)}</p>")
+    if in_list:
+        lines_out.append("</ul>")
+    return "\n".join(lines_out)
+
+
+def generate_ai_post():
+    """Write a fresh, searchable SEO article with the free AI when /content is empty."""
+    if not AI_ARTICLE_ENABLED:
+        return generate_placeholder_post()
+
+    topics = [t.strip() for t in CONTENT_TOPICS if t and t.strip()]
+    if not topics:
+        return generate_placeholder_post()
+
+    # Rotate topics by calendar day so each day gets a different subject.
+    day_index = datetime.now().toordinal() % len(topics)
+    topic = topics[day_index]
+
+    prompt = (
+        "Write a complete, original, SEO-optimized blog article in plain Markdown. "
+        "Start with a single '# ' title line that is catchy but not clickbait (under "
+        "70 characters). Then write at least 6 short paragraphs using '## ' section "
+        "headings, and include one short bullet list. Write in clear, simple English "
+        "for a general reader. Do not repeat the title anywhere else."
+        f"\nTopic: {topic}"
+    )
+    markdown = ask_ai(prompt, timeout=90)
+    if not markdown or len(markdown.strip()) < 120:
+        logging.warning("AI produced no usable article; falling back to placeholder.")
+        return generate_placeholder_post()
+
+    # First non-empty line that starts with '# ' is the title.
+    title = None
+    for line in markdown.splitlines():
+        if line.strip().startswith("# "):
+            title = normalize_title(line.strip()[2:].strip(), topic.title())
+            break
+    if not title:
+        title = normalize_title("", topic.title())
+    title = title[:70]
+
+    # Remove the title line from the body to avoid a duplicate <h1> later.
+    body_lines = [
+        line
+        for line in markdown.splitlines()
+        if not line.strip().startswith("# ")
+    ]
+    body_md = "\n".join(body_lines)
+    content = markdown_lite_to_html(body_md)
+
+    logging.info("Generated AI article for topic: %s (title=%s)", topic, title)
+    return title, content
+
+
 
 
 def fetch_pexels_image(query, cache):
@@ -901,7 +1062,7 @@ def run_once():
         print(f"Posted {posted_count} article(s) from /content/")
         return
 
-    title, content = generate_placeholder_post()
+    title, content = generate_ai_post()
     keywords = extract_keywords(strip_html(content), max_keywords=10)
     seo_title, seo_html, _ = build_post_html(title, content, keywords, [], [])
     seo_title = ensure_unique_title(seo_title, keywords[0] if keywords else "", title_history)
